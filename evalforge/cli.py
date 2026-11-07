@@ -9,7 +9,15 @@ import sys
 from . import __version__
 from .compare import compare_runs
 from .core import EvalForgeError, load_run, load_tasks, write_run
-from .report import render_html, write_compare_markdown, write_html, write_junit, write_markdown
+from .report import (
+    render_html,
+    write_compare_markdown,
+    write_compare_sarif,
+    write_html,
+    write_junit,
+    write_markdown,
+    write_sarif,
+)
 from .runner import run_suite
 
 
@@ -52,6 +60,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--report", help="optional self-contained HTML report path")
     run.add_argument("--junit", help="optional JUnit XML report path")
     run.add_argument("--markdown", help="optional Markdown job summary path")
+    run.add_argument("--sarif", help="optional SARIF 2.1.0 report path for code scanning tools")
     run.add_argument("--timeout", type=float, default=30.0, help="per-task adapter timeout in seconds")
     run.add_argument("--retries", type=int, default=0, help="retry failed adapter calls this many times")
     run.add_argument("--workers", type=int, default=1, help="parallel adapter calls")
@@ -71,6 +80,7 @@ def build_parser() -> argparse.ArgumentParser:
     compare.add_argument("--max-drop", type=float, default=0.0, help="allowed per-task score decrease")
     compare.add_argument("--format", choices=("text", "json"), default="text")
     compare.add_argument("--markdown", help="optional Markdown comparison summary path")
+    compare.add_argument("--sarif", help="optional SARIF 2.1.0 comparison report path")
     return parser
 
 
@@ -99,6 +109,8 @@ def main(argv: list[str] | None = None) -> int:
                 write_junit(args.out, args.junit)
             if args.markdown:
                 write_markdown(args.out, args.markdown)
+            if args.sarif:
+                write_sarif(args.out, args.sarif)
             _print_run_summary(payload)
             if not 0.0 <= args.fail_under <= 1.0:
                 raise EvalForgeError("--fail-under must be between 0 and 1")
@@ -116,6 +128,8 @@ def main(argv: list[str] | None = None) -> int:
             payload = compare_runs(args.baseline, args.candidate, max_drop=args.max_drop)
             if args.markdown:
                 write_compare_markdown(payload, args.markdown)
+            if args.sarif:
+                write_compare_sarif(payload, args.sarif)
             if args.format == "json":
                 print(json.dumps(payload, indent=2, sort_keys=True))
             else:
