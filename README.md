@@ -2,7 +2,7 @@
 
 Local-first evaluation for LLM and agent outputs.
 
-EvalForge runs a versioned set of prompts through any model or agent adapter you choose, scores every response with deterministic checks, writes a durable JSON run record, renders a self-contained HTML report, and compares candidate runs against a baseline so regressions fail before they ship.
+EvalForge runs a versioned set of prompts through any model or agent adapter you choose, scores every response with deterministic checks, writes a durable JSON run record, renders self-contained HTML and JUnit XML reports, and compares candidate runs against a baseline so regressions fail before they ship.
 
 It is deliberately useful without an API key: the included demo uses a deterministic local adapter, and the same runner can point at a local model, an internal agent binary, or a paid API command that the user separately configures.
 
@@ -21,7 +21,7 @@ AI features often fail in ways that ordinary unit tests miss: a prompt edit impr
 - **Command adapter contract** — the task prompt is sent to the adapter on stdin, the adapter writes its answer to stdout, and non-zero exits are preserved as run errors.
 - **Typed task suites** — JSONL tasks with stable IDs, prompts, expected values, tags, metadata and executable checks.
 - **Deterministic scorers** — exact match, substring checks, regular expressions, JSON equality or subset matching, token-F1 similarity, numeric tolerance, and word/character length bounds.
-- **Run records as artifacts** — JSON output includes per-task scores, check details, raw output, latency, attempts, adapter command, timestamp and tag roll-ups.
+- **Run records as artifacts** — JSON output includes per-task scores, check details, raw output, latency, attempts, adapter command, timestamp and tag roll-ups; JUnit XML exposes the same results to ordinary CI test viewers.
 - **Regression comparison** — compares a candidate run to a baseline by task ID, reports missing tasks and score drops first, and exits non-zero when the candidate regresses.
 - **Self-contained reports** — one HTML file with inline CSS, escaped model output, summary cards, tag roll-ups and per-task details; no JavaScript or external assets.
 - **Scriptable gates** — meaningful exit codes, `--fail-under`, `--max-drop`, tag filtering, retries, timeouts and bounded parallel execution.
@@ -36,6 +36,7 @@ python3 -m evalforge run \
   --cmd "python3 examples/mock_model.py" \
   --out .evalforge-demo/run.json \
   --report .evalforge-demo/report.html \
+  --junit .evalforge-demo/results.xml \
   --fail-under 1.0
 ```
 
@@ -45,7 +46,7 @@ Expected result:
 6/6 passed · mean score 1.000 · errors 0 · p95 <latency> ms
 ```
 
-Open `.evalforge-demo/report.html` for the rendered report. The mock adapter is a deterministic stand-in, not an AI model; it proves the evaluation loop without pretending to measure model quality.
+Open `.evalforge-demo/report.html` for the rendered report. `.evalforge-demo/results.xml` is a JUnit report for CI test viewers. The mock adapter is a deterministic stand-in, not an AI model; it proves the evaluation loop without pretending to measure model quality.
 
 ## Evaluate a real model or agent
 
@@ -119,7 +120,7 @@ The comparison:
 
 ```text
 python3 -m evalforge validate TASKS.jsonl
-python3 -m evalforge run --tasks TASKS.jsonl --cmd COMMAND --out RUN.json [--report REPORT.html]
+python3 -m evalforge run --tasks TASKS.jsonl --cmd COMMAND --out RUN.json [--report REPORT.html] [--junit RESULTS.xml]
                          [--timeout SECONDS] [--retries N] [--workers N]
                          [--tag TAG ...] [--fail-under SCORE]
 python3 -m evalforge report RUN.json --html REPORT.html
