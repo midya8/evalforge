@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 
 from evalforge.cli import main
 from evalforge.compare import compare_runs
-from evalforge.report import render_html, render_markdown
+from evalforge.report import render_compare_markdown, render_html, render_markdown
 from evalforge.runner import run_suite
 from evalforge.core import write_run
 
@@ -129,15 +129,39 @@ class CompareTests(unittest.TestCase):
             cand = Path(tmp) / "cand.json"
             self.make_run(base, 1.0, True)
             self.make_run(cand, 1.0, True)
+            markdown_path = Path(tmp) / "comparison.md"
             out = io.StringIO()
             with contextlib.redirect_stdout(out):
-                code = main(["compare", str(base), str(cand), "--format", "json"])
+                code = main(["compare", str(base), str(cand), "--format", "json", "--markdown", str(markdown_path)])
             payload = json.loads(out.getvalue())
+            markdown = markdown_path.read_text(encoding="utf-8")
         self.assertEqual(code, 0)
         self.assertTrue(payload["ok"])
+        self.assertIn("# EvalForge regression comparison", markdown)
+        self.assertIn("**Status:** PASS", markdown)
+        self.assertIn("| Common tasks | 1 |", markdown)
+        self.assertIn("| Regressions | 0 |", markdown)
 
 
 class ReportTests(unittest.TestCase):
+    def test_compare_markdown_escapes_paths_and_tasks(self):
+        payload = {
+            "baseline": "base|run.json",
+            "candidate": "candidate\nrun.json",
+            "max_drop": 0.05,
+            "summary": {"common": 1, "missing_in_candidate": 0, "added_in_candidate": 0, "regressions": 1, "improvements": 0, "unchanged": 0, "mean_score_delta": -0.5, "pass_rate_delta": -1.0},
+            "regressions": [{"task_id": "task|one", "baseline_score": 1.0, "candidate_score": 0.5, "delta": -0.5, "baseline_passed": True, "candidate_passed": False, "candidate_error": None}],
+            "improvements": [],
+            "missing_in_candidate": [],
+            "added_in_candidate": [],
+            "ok": False,
+        }
+        markdown = render_compare_markdown(payload)
+        self.assertIn("base\|run.json", markdown)
+        self.assertIn("candidate run.json", markdown)
+        self.assertIn("task\|one", markdown)
+        self.assertIn("**Status:** FAIL", markdown)
+
     def test_html_escapes_model_output(self):
         payload = run_suite(TASKS, f"{sys.executable} -c 'print(\"<script>alert(1)</script>\")'", only_tags=["classification"])
         html = render_html(payload)
