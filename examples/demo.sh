@@ -6,5 +6,13 @@ python3 -m evalforge run \
   --cmd "python3 examples/mock_model.py" \
   --out .evalforge-demo/run.json \
   --report .evalforge-demo/report.html \
+  --junit .evalforge-demo/results.xml \
   --fail-under 1.0
-printf '%s\n' 'Open .evalforge-demo/report.html in a browser.'
+python3 - <<'PY'
+import xml.etree.ElementTree as ET
+root = ET.parse('.evalforge-demo/results.xml').getroot()
+assert root.attrib['tests'] == '6'
+assert root.attrib['failures'] == '0'
+assert len(root.findall('testcase')) == 6
+PY
+printf '%s\n' 'Open .evalforge-demo/report.html in a browser. CI can consume .evalforge-demo/results.xml.'
