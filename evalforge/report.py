@@ -122,6 +122,84 @@ def write_html(run_path: str, html_path: str) -> None:
     path.write_text(render_html(payload), encoding="utf-8", newline="\n")
 
 
+def _md_cell(value: Any, limit: int | None = None) -> str:
+    text = str(value).replace("|", "\\|").replace("\r", " ").replace("\n", " ")
+    if limit is not None and len(text) > limit:
+        return text[: limit - 1] + "…"
+    return text
+
+
+def render_markdown(payload: dict[str, Any]) -> str:
+    """Render a concise Markdown summary suitable for CI job summaries."""
+    summary = payload.get("summary", {})
+    results = payload.get("results", [])
+    passed = int(summary.get("passed", 0))
+    count = int(summary.get("count", len(results)))
+    errors = int(summary.get("errors", 0))
+    status = "PASS" if count and passed == count and errors == 0 else "FAIL"
+    lines = [
+        "# EvalForge evaluation",
+        "",
+        f"**Status:** {status}",
+        "",
+        f"**Adapter:** `{_md_cell(payload.get('command', ''), 160)}`",
+        "",
+        "| Metric | Value |",
+        "| --- | ---: |",
+        f"| Tasks | {count} |",
+        f"| Passed | {passed} |",
+        f"| Failed | {int(summary.get('failed', max(0, count - passed)))} |",
+        f"| Errors | {errors} |",
+        f"| Pass rate | {_fmt_pct(float(summary.get('pass_rate', 0.0)))} |",
+        f"| Mean score | {float(summary.get('mean_score', 0.0)):.3f} |",
+        f"| p95 latency | {float(summary.get('p95_latency_ms', 0.0)):.0f} ms |",
+        "",
+        "## Score by tag",
+        "",
+        "| Tag | Passed | Mean score |",
+        "| --- | ---: | ---: |",
+    ]
+    tags = summary.get("tags", [])
+    if tags:
+        for tag in tags:
+            lines.append(
+                f"| {_md_cell(tag.get('tag', ''))} | {int(tag.get('passed', 0))} / {int(tag.get('count', 0))} | "
+                f"{float(tag.get('mean_score', 0.0)):.3f} |"
+            )
+    else:
+        lines.append("| No tags | 0 / 0 | 0.000 |")
+    lines.extend([
+        "",
+        "## Task results",
+        "",
+        "| Task | Status | Score | Latency | Attempts | Checks |",
+        "| --- | --- | ---: | ---: | ---: | --- |",
+    ])
+    for result in results:
+        checks = result.get("checks", [])
+        check_text = "; ".join(
+            f"{item.get('type')}: {item.get('detail')}" for item in checks
+        ) or str(result.get("error") or "no checks recorded")
+        lines.append(
+            "| " + " | ".join([
+                _md_cell(result.get("task_id", ""), 80),
+                "PASS" if result.get("passed") else "FAIL",
+                f"{float(result.get('score', 0.0)):.3f}",
+                f"{float(result.get('latency_ms', 0.0)):.0f} ms",
+                str(int(result.get("attempts", 1))),
+                _md_cell(check_text, 160),
+            ]) + " |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def write_markdown(run_path: str, markdown_path: str) -> None:
+    payload = load_run(run_path)
+    path = Path(markdown_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_markdown(payload), encoding="utf-8", newline="\n")
+
+
 def render_junit(payload: dict[str, Any]) -> str:
     """Render a run payload as a JUnit XML test suite."""
     results = payload.get("results", [])
