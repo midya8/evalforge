@@ -9,7 +9,7 @@ import sys
 from . import __version__
 from .compare import compare_runs
 from .core import EvalForgeError, load_run, load_tasks, write_run
-from .report import render_html, write_html, write_junit, write_markdown
+from .report import render_html, write_compare_markdown, write_html, write_junit, write_markdown
 from .runner import run_suite
 
 
@@ -70,6 +70,7 @@ def build_parser() -> argparse.ArgumentParser:
     compare.add_argument("candidate", help="candidate run JSON")
     compare.add_argument("--max-drop", type=float, default=0.0, help="allowed per-task score decrease")
     compare.add_argument("--format", choices=("text", "json"), default="text")
+    compare.add_argument("--markdown", help="optional Markdown comparison summary path")
     return parser
 
 
@@ -113,6 +114,8 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command_name == "compare":
             payload = compare_runs(args.baseline, args.candidate, max_drop=args.max_drop)
+            if args.markdown:
+                write_compare_markdown(payload, args.markdown)
             if args.format == "json":
                 print(json.dumps(payload, indent=2, sort_keys=True))
             else:
