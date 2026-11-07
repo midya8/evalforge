@@ -21,7 +21,7 @@ AI features often fail in ways that ordinary unit tests miss: a prompt edit impr
 - **Command adapter contract** — the task prompt is sent to the adapter on stdin, the adapter writes its answer to stdout, and non-zero exits are preserved as run errors.
 - **Typed task suites** — JSONL tasks with stable IDs, prompts, expected values, tags, metadata and executable checks.
 - **Deterministic scorers** — exact match, substring checks, regular expressions, JSON equality or subset matching, token-F1 similarity, numeric tolerance, and word/character length bounds.
-- **Run records as artifacts** — JSON output includes per-task scores, check details, raw output, latency, attempts, adapter command, timestamp and tag roll-ups; JUnit XML exposes the same results to ordinary CI test viewers; Markdown summaries fit native CI job-summary surfaces.
+- **Run records as artifacts** — JSON output includes per-task scores, check details, raw output, latency, attempts, adapter command, timestamp and tag roll-ups; JUnit XML exposes the same results to ordinary CI test viewers; Markdown run and regression summaries fit native CI job-summary surfaces.
 - **Regression comparison** — compares a candidate run to a baseline by task ID, reports missing tasks and score drops first, and exits non-zero when the candidate regresses.
 - **Self-contained reports** — one HTML file with inline CSS, escaped model output, summary cards, tag roll-ups and per-task details; no JavaScript or external assets.
 - **Scriptable gates** — meaningful exit codes, `--fail-under`, `--max-drop`, tag filtering, retries, timeouts and bounded parallel execution.
@@ -115,7 +115,8 @@ The comparison:
 - treats missing candidate tasks as failures;
 - includes mean-score and pass-rate deltas;
 - exits `1` when a task drops more than `--max-drop`, a passing task starts failing, or a baseline task is missing;
-- emits JSON with `--format json` for automation.
+- emits JSON with `--format json` for automation;
+- writes a Markdown comparison with `--markdown PATH` for CI job summaries.
 
 ## Command reference
 
@@ -125,7 +126,7 @@ python3 -m evalforge run --tasks TASKS.jsonl --cmd COMMAND --out RUN.json [--rep
                          [--timeout SECONDS] [--retries N] [--workers N]
                          [--tag TAG ...] [--fail-under SCORE]
 python3 -m evalforge report RUN.json --html REPORT.html
-python3 -m evalforge compare BASELINE.json CANDIDATE.json [--max-drop SCORE] [--format text|json]
+python3 -m evalforge compare BASELINE.json CANDIDATE.json [--max-drop SCORE] [--format text|json] [--markdown COMPARISON.md]
 ```
 
 Exit codes:
