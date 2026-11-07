@@ -200,6 +200,77 @@ def write_markdown(run_path: str, markdown_path: str) -> None:
     path.write_text(render_markdown(payload), encoding="utf-8", newline="\n")
 
 
+def render_compare_markdown(payload: dict[str, Any]) -> str:
+    """Render a baseline/candidate comparison for CI job summaries."""
+    summary = payload.get("summary", {})
+    status = "PASS" if payload.get("ok") else "FAIL"
+    lines = [
+        "# EvalForge regression comparison",
+        "",
+        f"**Status:** {status}",
+        "",
+        f"**Baseline:** `{_md_cell(payload.get('baseline', ''), 160)}`",
+        "",
+        f"**Candidate:** `{_md_cell(payload.get('candidate', ''), 160)}`",
+        "",
+        f"**Allowed score drop:** {float(payload.get('max_drop', 0.0)):.3f}",
+        "",
+        "| Metric | Value |",
+        "| --- | ---: |",
+        f"| Common tasks | {int(summary.get('common', 0))} |",
+        f"| Regressions | {int(summary.get('regressions', 0))} |",
+        f"| Improvements | {int(summary.get('improvements', 0))} |",
+        f"| Unchanged | {int(summary.get('unchanged', 0))} |",
+        f"| Missing in candidate | {int(summary.get('missing_in_candidate', 0))} |",
+        f"| Added in candidate | {int(summary.get('added_in_candidate', 0))} |",
+        f"| Mean score delta | {float(summary.get('mean_score_delta', 0.0)):+.3f} |",
+        f"| Pass-rate delta | {_fmt_pct(float(summary.get('pass_rate_delta', 0.0)))} |",
+    ]
+
+    def add_changes(title: str, items: list[dict[str, Any]]) -> None:
+        lines.extend([
+            "",
+            f"## {title}",
+            "",
+            "| Task | Baseline | Candidate | Delta | Baseline status | Candidate status |",
+            "| --- | ---: | ---: | ---: | --- | --- |",
+        ])
+        if not items:
+            lines.append("| None |  |  |  |  |  |")
+            return
+        for item in items:
+            lines.append(
+                "| " + " | ".join([
+                    _md_cell(item.get("task_id", ""), 80),
+                    f"{float(item.get('baseline_score', 0.0)):.3f}",
+                    f"{float(item.get('candidate_score', 0.0)):.3f}",
+                    f"{float(item.get('delta', 0.0)):+.3f}",
+                    "PASS" if item.get("baseline_passed") else "FAIL",
+                    "ERROR" if item.get("candidate_error") else ("PASS" if item.get("candidate_passed") else "FAIL"),
+                ]) + " |"
+            )
+
+    add_changes("Regressions", payload.get("regressions", []))
+    add_changes("Improvements", payload.get("improvements", []))
+    lines.extend(["", "## Task set differences", ""])
+    missing = payload.get("missing_in_candidate", [])
+    added = payload.get("added_in_candidate", [])
+    if not missing and not added:
+        lines.append("Baseline and candidate contain the same task IDs.")
+    else:
+        if missing:
+            lines.append("**Missing from candidate:** " + ", ".join(f"`{_md_cell(item, 80)}`" for item in missing))
+        if added:
+            lines.append("**Added in candidate:** " + ", ".join(f"`{_md_cell(item, 80)}`" for item in added))
+    return "\n".join(lines) + "\n"
+
+
+def write_compare_markdown(payload: dict[str, Any], markdown_path: str) -> None:
+    path = Path(markdown_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_compare_markdown(payload), encoding="utf-8", newline="\n")
+
+
 def render_junit(payload: dict[str, Any]) -> str:
     """Render a run payload as a JUnit XML test suite."""
     results = payload.get("results", [])
