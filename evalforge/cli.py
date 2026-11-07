@@ -9,7 +9,7 @@ import sys
 from . import __version__
 from .compare import compare_runs
 from .core import EvalForgeError, load_run, load_tasks, write_run
-from .report import render_html, write_html
+from .report import render_html, write_html, write_junit
 from .runner import run_suite
 
 
@@ -50,6 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
     run.add_argument("--cmd", required=True, help="adapter command; prompt arrives on stdin")
     run.add_argument("--out", required=True, help="write run JSON here")
     run.add_argument("--report", help="optional self-contained HTML report path")
+    run.add_argument("--junit", help="optional JUnit XML report path")
     run.add_argument("--timeout", type=float, default=30.0, help="per-task adapter timeout in seconds")
     run.add_argument("--retries", type=int, default=0, help="retry failed adapter calls this many times")
     run.add_argument("--workers", type=int, default=1, help="parallel adapter calls")
@@ -92,6 +93,8 @@ def main(argv: list[str] | None = None) -> int:
             write_run(args.out, payload)
             if args.report:
                 write_html(args.out, args.report)
+            if args.junit:
+                write_junit(args.out, args.junit)
             _print_run_summary(payload)
             if not 0.0 <= args.fail_under <= 1.0:
                 raise EvalForgeError("--fail-under must be between 0 and 1")

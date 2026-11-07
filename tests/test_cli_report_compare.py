@@ -5,6 +5,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+import xml.etree.ElementTree as ET
 
 from evalforge.cli import main
 from evalforge.compare import compare_runs
@@ -29,17 +30,23 @@ class CliTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             run_path = Path(tmp) / "run.json"
             html_path = Path(tmp) / "report.html"
+            junit_path = Path(tmp) / "junit.xml"
             out = io.StringIO()
             with contextlib.redirect_stdout(out):
                 code = main([
                     "run", "--tasks", str(TASKS), "--cmd", f"{sys.executable} {MOCK}",
-                    "--out", str(run_path), "--report", str(html_path), "--fail-under", "1.0",
+                    "--out", str(run_path), "--report", str(html_path), "--junit", str(junit_path), "--fail-under", "1.0",
                 ])
             self.assertEqual(code, 0)
             self.assertTrue(run_path.is_file())
             html = html_path.read_text(encoding="utf-8")
+            junit = ET.parse(junit_path).getroot()
         self.assertIn("EvalForge report", html)
         self.assertIn("extract-city-json", html)
+        self.assertEqual(junit.tag, "testsuite")
+        self.assertEqual(junit.attrib["tests"], "6")
+        self.assertEqual(junit.attrib["failures"], "0")
+        self.assertEqual(len(junit.findall("testcase")), 6)
         self.assertIn("6/6 passed", out.getvalue())
 
     def test_run_command_gate_fails(self):
