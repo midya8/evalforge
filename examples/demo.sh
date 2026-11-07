@@ -9,6 +9,11 @@ python3 -m evalforge run \
   --junit .evalforge-demo/results.xml \
   --markdown .evalforge-demo/summary.md \
   --fail-under 1.0
+cp .evalforge-demo/run.json .evalforge-demo/baseline.json
+python3 -m evalforge compare \
+  .evalforge-demo/baseline.json \
+  .evalforge-demo/run.json \
+  --markdown .evalforge-demo/comparison.md
 python3 - <<'PY'
 import xml.etree.ElementTree as ET
 root = ET.parse('.evalforge-demo/results.xml').getroot()
@@ -20,5 +25,10 @@ assert summary.startswith('# EvalForge evaluation\n')
 assert '**Status:** PASS' in summary
 assert '| Tasks | 6 |' in summary
 assert '## Task results' in summary
+comparison = open('.evalforge-demo/comparison.md', encoding='utf-8').read()
+assert comparison.startswith('# EvalForge regression comparison\n')
+assert '**Status:** PASS' in comparison
+assert '| Common tasks | 6 |' in comparison
+assert '| Regressions | 0 |' in comparison
 PY
-printf '%s\n' 'Open .evalforge-demo/report.html in a browser. CI can consume .evalforge-demo/results.xml and .evalforge-demo/summary.md.'
+printf '%s\n' 'Open .evalforge-demo/report.html in a browser. CI can consume .evalforge-demo/results.xml, .evalforge-demo/summary.md and .evalforge-demo/comparison.md.'
