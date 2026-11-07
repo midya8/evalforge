@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from html import escape
+import json
 from pathlib import Path
 from typing import Any
 import xml.etree.ElementTree as ET
 
+from . import __version__
 from .core import load_run
 
 
@@ -323,3 +325,167 @@ def write_junit(run_path: str, junit_path: str) -> None:
     path = Path(junit_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_junit(payload), encoding="utf-8", newline="\n")
+
+
+_SARIF_RUN_RULES = {
+    "EVALFORGE_TASK_FAILED": {
+        "id": "EVALFORGE_TASK_FAILED",
+        "name": "EvalForgeTaskFailed",
+        "shortDescription": {"text": "task failed one or more deterministic scoring checks"},
+        "defaultConfiguration": {"level": "error"},
+    },
+    "EVALFORGE_ADAPTER_ERROR": {
+        "id": "EVALFORGE_ADAPTER_ERROR",
+        "name": "EvalForgeAdapterError",
+        "shortDescription": {"text": "adapter command failed or timed out for a task"},
+        "defaultConfiguration": {"level": "error"},
+    },
+}
+
+_SARIF_COMPARE_RULES = {
+    "EVALFORGE_REGRESSION": {
+        "id": "EVALFORGE_REGRESSION",
+        "name": "EvalForgeRegression",
+        "shortDescription": {"text": "candidate score regressed beyond the allowed drop"},
+        "defaultConfiguration": {"level": "error"},
+    },
+    "EVALFORGE_MISSING_TASK": {
+        "id": "EVALFORGE_MISSING_TASK",
+        "name": "EvalForgeMissingTask",
+        "shortDescription": {"text": "baseline task is missing from the candidate run"},
+        "defaultConfiguration": {"level": "warning"},
+    },
+}
+
+
+def _sarif_result(rule_id: str, level: str, message: str, uri: str, properties: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "ruleId": rule_id,
+        "level": level,
+        "message": {"text": message},
+        "locations": [
+            {
+                "physicalLocation": {
+                    "artifactLocation": {"uri": uri.replace("\\", "/")},
+                    "region": {"startLine": 1},
+                }
+            }
+        ],
+        "properties": properties,
+    }
+
+
+def _sarif_document(rules: dict[str, Any], results: list[dict[str, Any]], *, version: str, execution_successful: bool) -> str:
+    used_rules = [rules[key] for key in sorted(rules) if any(item["ruleId"] == key for item in results)]
+    payload = {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "EvalForge",
+                        "version": version,
+                        "informationUri": "https://github.com/midya8/evalforge",
+                        "rules": used_rules,
+                    }
+                },
+                "results": results,
+                "invocations": [{"executionSuccessful": execution_successful}],
+            }
+        ],
+    }
+    return json.dumps(payload, indent=2, sort_keys=True) + "\n"
+
+
+def render_sarif(payload: dict[str, Any], *, version: str, run_path: str) -> str:
+    """Render a run payload as a SARIF 2.1.0 log of failed tasks and adapter errors."""
+    results: list[dict[str, Any]] = []
+    clean = True
+    for item in payload.get("results", []):
+        task_id = str(item.get("task_id", ""))
+        checks = item.get("checks", [])
+        detail = "; ".join(f"{check.get('type')}: {check.get('detail')}" for check in checks)
+        properties = {
+            "task_id": task_id,
+            "score": float(item.get("score", 0.0)),
+            "latency_ms": float(item.get("latency_ms", 0.0)),
+            "tags": [str(tag) for tag in item.get("tags", [])],
+        }
+        if item.get("error"):
+            clean = False
+            results.append(
+                _sarif_result(
+                    "EVALFORGE_ADAPTER_ERROR",
+                    "error",
+                    f"task {task_id}: adapter error: {item.get('error')}",
+                    run_path,
+                    properties,
+                )
+            )
+        elif not item.get("passed"):
+            clean = False
+            message = f"task {task_id} failed"
+            if detail:
+                message = f"{message}: {detail}"
+            results.append(
+                _sarif_result("EVALFORGE_TASK_FAILED", "error", message, run_path, properties)
+            )
+    return _sarif_document(_SARIF_RUN_RULES, results, version=version, execution_successful=clean)
+
+
+def render_compare_sarif(payload: dict[str, Any], *, version: str) -> str:
+    """Render a comparison payload as a SARIF 2.1.0 log of regressions."""
+    candidate_uri = str(payload.get("candidate", ""))
+    results: list[dict[str, Any]] = []
+    for item in payload.get("regressions", []):
+        task_id = str(item.get("task_id", ""))
+        message = (
+            f"task {task_id}: score {float(item.get('baseline_score', 0.0)):.3f} -> "
+            f"{float(item.get('candidate_score', 0.0)):.3f} ({float(item.get('delta', 0.0)):+.3f})"
+        )
+        if item.get("candidate_error"):
+            message = f"{message}; candidate error: {item['candidate_error']}"
+        results.append(
+            _sarif_result(
+                "EVALFORGE_REGRESSION",
+                "error",
+                message,
+                candidate_uri,
+                {
+                    "task_id": task_id,
+                    "baseline_score": float(item.get("baseline_score", 0.0)),
+                    "candidate_score": float(item.get("candidate_score", 0.0)),
+                    "delta": float(item.get("delta", 0.0)),
+                },
+            )
+        )
+    for task_id in payload.get("missing_in_candidate", []):
+        results.append(
+            _sarif_result(
+                "EVALFORGE_MISSING_TASK",
+                "warning",
+                f"task {task_id}: present in baseline but missing from candidate run",
+                candidate_uri,
+                {"task_id": str(task_id)},
+            )
+        )
+    return _sarif_document(
+        _SARIF_COMPARE_RULES,
+        results,
+        version=version,
+        execution_successful=bool(payload.get("ok")),
+    )
+
+
+def write_sarif(run_path: str, sarif_path: str) -> None:
+    payload = load_run(run_path)
+    path = Path(sarif_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_sarif(payload, version=__version__, run_path=run_path), encoding="utf-8", newline="\n")
+
+
+def write_compare_sarif(payload: dict[str, Any], sarif_path: str) -> None:
+    path = Path(sarif_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_compare_sarif(payload, version=__version__), encoding="utf-8", newline="\n")
