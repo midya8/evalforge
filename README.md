@@ -150,7 +150,7 @@ Exit codes:
 
 ```bash
 python3 -m unittest discover -s tests -v
-python3 examples/demo.sh
+bash examples/demo.sh
 ```
 
 The test suite runs fully offline. CI runs the same suite on Python 3.10 through 3.13.
