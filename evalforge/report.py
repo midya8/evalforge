@@ -5,6 +5,7 @@ from __future__ import annotations
 from html import escape
 from pathlib import Path
 from typing import Any
+import xml.etree.ElementTree as ET
 
 from .core import load_run
 
@@ -119,3 +120,57 @@ def write_html(run_path: str, html_path: str) -> None:
     path = Path(html_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_html(payload), encoding="utf-8", newline="\n")
+
+
+def render_junit(payload: dict[str, Any]) -> str:
+    """Render a run payload as a JUnit XML test suite."""
+    results = payload.get("results", [])
+    failures = sum(1 for item in results if not item.get("passed") and not item.get("error"))
+    errors = sum(1 for item in results if item.get("error"))
+    total_seconds = sum(float(item.get("latency_ms", 0.0)) for item in results) / 1000.0
+    suite = ET.Element(
+        "testsuite",
+        {
+            "name": "evalforge",
+            "tests": str(len(results)),
+            "failures": str(failures),
+            "errors": str(errors),
+            "time": f"{total_seconds:.6f}",
+            "timestamp": str(payload.get("created_at", "")),
+        },
+    )
+    for result in results:
+        tags = [str(tag) for tag in result.get("tags", [])]
+        classname = "evalforge." + ".".join(tags) if tags else "evalforge"
+        testcase = ET.SubElement(
+            suite,
+            "testcase",
+            {
+                "classname": classname,
+                "name": str(result.get("task_id", "")),
+                "time": f"{float(result.get('latency_ms', 0.0)) / 1000.0:.6f}",
+            },
+        )
+        checks = result.get("checks", [])
+        detail = "; ".join(
+            f"{item.get('type')}: {item.get('detail')}" for item in checks
+        )
+        if result.get("error"):
+            element = ET.SubElement(testcase, "error", {"message": str(result.get("error"))})
+            element.text = detail or str(result.get("error"))
+        elif not result.get("passed"):
+            element = ET.SubElement(
+                testcase,
+                "failure",
+                {"message": f"task {result.get('task_id', '')} failed"},
+            )
+            element.text = detail or "task failed"
+    ET.indent(suite, space="  ")
+    return "<?xml version='1.0' encoding='utf-8'?>\n" + ET.tostring(suite, encoding="unicode") + "\n"
+
+
+def write_junit(run_path: str, junit_path: str) -> None:
+    payload = load_run(run_path)
+    path = Path(junit_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render_junit(payload), encoding="utf-8", newline="\n")
