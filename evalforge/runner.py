@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
+import math
 import os
 from pathlib import Path
 import shlex
@@ -11,7 +12,7 @@ import subprocess
 import time
 from typing import Any
 
-from .core import EvalForgeError, Task, TaskResult, load_tasks, summarize
+from .core import EvalForgeError, Task, TaskResult, load_tasks, summarize, finite_number
 from .scorers import score_task
 
 
@@ -85,11 +86,11 @@ def run_suite(
 ) -> dict[str, Any]:
     """Run a JSONL task suite and return a serializable run payload."""
 
-    if timeout <= 0:
+    if not finite_number(timeout) or timeout <= 0:
         raise EvalForgeError("Timeout must be positive")
-    if retries < 0:
+    if isinstance(retries, bool) or not isinstance(retries, int) or retries < 0:
         raise EvalForgeError("Retries must be non-negative")
-    if workers < 1:
+    if isinstance(workers, bool) or not isinstance(workers, int) or workers < 1:
         raise EvalForgeError("Workers must be at least 1")
     tasks = load_tasks(tasks_path, only_tags=only_tags)
     if workers == 1 or len(tasks) == 1:
