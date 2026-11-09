@@ -1,0 +1,73 @@
+{
+  "max_drop": 0.0,
+  "baseline": [
+    {
+      "task_id": "a",
+      "score": 0.8,
+      "passed": true,
+      "output": "",
+      "checks": [],
+      "latency_ms": 0.0,
+      "attempts": 1,
+      "error": null,
+      "tags": []
+    },
+    {
+      "task_id": "b",
+      "score": 0.8,
+      "passed": true,
+      "output": "",
+      "checks": [],
+      "latency_ms": 0.0,
+      "attempts": 1,
+      "error": null,
+      "tags": []
+    },
+    {
+      "task_id": "missing-easy",
+      "score": 1.0,
+      "passed": true,
+      "output": "",
+      "checks": [],
+      "latency_ms": 0.0,
+      "attempts": 1,
+      "error": null,
+      "tags": []
+    }
+  ],
+  "candidate": [
+    {
+      "task_id": "a",
+      "score": 0.9,
+      "passed": true,
+      "output": "",
+      "checks": [],
+      "latency_ms": 0.0,
+      "attempts": 1,
+      "error": null,
+      "tags": []
+    },
+    {
+      "task_id": "b",
+      "score": 0.9,
+      "passed": true,
+      "output": "",
+      "checks": [],
+      "latency_ms": 0.0,
+      "attempts": 1,
+      "error": null,
+      "tags": []
+    },
+    {
+      "task_id": "added-hard",
+      "score": 0.0,
+      "passed": false,
+      "output": "",
+      "checks": [],
+      "latency_ms": 0.0,
+      "attempts": 1,
+      "error": null,
+      "tags": []
+    }
+  ]
+}
