@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import sys
 
 from . import __version__
@@ -34,8 +35,12 @@ def _print_compare(payload: dict) -> None:
     summary = payload["summary"]
     print(
         f"{summary['regressions']} regressions · {summary['improvements']} improvements · "
-        f"{summary['unchanged']} unchanged · mean score delta {summary['mean_score_delta']:+.3f}"
+        f"{summary['unchanged']} unchanged · all-task mean score delta {summary['mean_score_delta']:+.3f}"
     )
+    paired = payload.get("paired_summary")
+    if paired:
+        value = f"{paired['mean_score_delta']:+.3f}" if paired["defined"] else "undefined"
+        print(f"matched-task mean score delta {value} across {paired['count']} pairs")
     for item in payload["regressions"][:10]:
         print(
             f"REGRESSION {item['task_id']}: {item['baseline_score']:.3f} -> "
@@ -81,6 +86,9 @@ def build_parser() -> argparse.ArgumentParser:
     compare.add_argument("--format", choices=("text", "json"), default="text")
     compare.add_argument("--markdown", help="optional Markdown comparison summary path")
     compare.add_argument("--sarif", help="optional SARIF 2.1.0 comparison report path")
+    audit = subparsers.add_parser("audit", help="bounded paired comparison and exhaustive null witnesses")
+    audit.add_argument("--spec", required=True)
+    audit.add_argument("--json", required=True)
     return parser
 
 
@@ -88,12 +96,21 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     try:
+        if args.command_name == "audit":
+            from .audit import audit_compare, load_spec
+            payload = audit_compare(load_spec(args.spec))
+            write_run(args.json, payload)
+            print(f"audited {len(payload['pair_differences'])} pairs; inference does not change the CI gate")
+            return 0
+
         if args.command_name == "validate":
             tasks = load_tasks(args.tasks)
             print(f"validated {len(tasks)} tasks")
             return 0
 
         if args.command_name == "run":
+            if not math.isfinite(args.fail_under) or not 0.0 <= args.fail_under <= 1.0:
+                raise EvalForgeError("--fail-under must be between 0 and 1")
             payload = run_suite(
                 args.tasks,
                 args.cmd,
@@ -135,7 +152,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 _print_compare(payload)
             return 0 if payload["ok"] else 1
-    except EvalForgeError as exc:
+    except (EvalForgeError, OSError) as exc:
         print(f"evalforge: {exc}", file=sys.stderr)
         return 2
     return 2
