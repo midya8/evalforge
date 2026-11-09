@@ -1,161 +1,60 @@
 # EvalForge
 
-Local-first evaluation for LLM and agent outputs.
+Local-first evaluation for LLM and agent outputs, with paired comparison evidence.
 
-EvalForge runs a versioned set of prompts through any model or agent adapter you choose, scores every response with deterministic checks, writes a durable JSON run record, renders self-contained HTML, JUnit XML, Markdown and SARIF reports, and compares candidate runs against a baseline so regressions fail before they ship.
+[Open the paired inspector](https://midya8.github.io/evalforge/) · [Evidence contract](EVIDENCE.md) · [Original README](docs/original-readme.md)
 
-It is deliberately useful without an API key: the included demo uses a deterministic local adapter, and the same runner can point at a local model, an internal agent binary, or a paid API command that the user separately configures.
+## The average changed. Did the tasks?
 
-## Why this exists
+The original standard-library harness runs local/hosted command adapters, scores text with deterministic checks, preserves responses/errors/check details and writes HTML, JUnit, Markdown and SARIF reports. The included six-task adapter is an offline mock, not an AI model or benchmark.
 
-AI features often fail in ways that ordinary unit tests miss: a prompt edit improves one answer and silently regresses three others, a model swap changes output shape, or a latency spike only appears in a long tail. EvalForge makes those changes reviewable:
+Comparison now retains every matched task's full baseline/candidate records, score/pass changes, gate margin and decision. Means are recomputed from result rows, never trusted from stored summaries. The all-task delta and matched-task delta are separate: missing/added tasks can reverse their signs. Duplicate result ids, nonfinite/out-of-range scores, non-Boolean pass flags, invalid latency/attempts/check records and duplicate tags are rejected instead of silently coerced or overwritten.
 
-- prompts and acceptance criteria live in versioned JSONL;
-- the adapter is just a command, so the harness does not care which model or agent runtime produced the text;
-- checks are deterministic and inspectable rather than another opaque model judging the output;
-- every run preserves raw output, check detail, latency, attempts and errors;
-- baseline comparison produces a regression gate that CI can enforce.
+The regression rule is preserved: fail when delta < -max_drop, a passing task becomes failing, or a baseline task is missing. Added candidate tasks do not fail it. A tolerated decline is classified "unchanged"; a persistent error/failure can still pass a comparison. This is not an absolute quality gate. Native comparison retains binary64 boundary behavior and is not restricted to the inspector's grid.
 
-## Features
-
-- **Command adapter contract** — the task prompt is sent to the adapter on stdin, the adapter writes its answer to stdout, and non-zero exits are preserved as run errors.
-- **Typed task suites** — JSONL tasks with stable IDs, prompts, expected values, tags, metadata and executable checks.
-- **Deterministic scorers** — exact match, substring checks, regular expressions, JSON equality or subset matching, token-F1 similarity, numeric tolerance, and word/character length bounds.
-- **Run records as artifacts** — JSON output includes per-task scores, check details, raw output, latency, attempts, adapter command, timestamp and tag roll-ups; JUnit XML exposes the same results to ordinary CI test viewers; Markdown run and regression summaries fit native CI job-summary surfaces; SARIF 2.1.0 output feeds failed tasks, adapter errors and regressions to code-scanning tools.
-- **Regression comparison** — compares a candidate run to a baseline by task ID, reports missing tasks and score drops first, and exits non-zero when the candidate regresses.
-- **Self-contained reports** — one HTML file with inline CSS, escaped model output, summary cards, tag roll-ups and per-task details; no JavaScript or external assets.
-- **Scriptable gates** — meaningful exit codes, `--fail-under`, `--max-drop`, tag filtering, retries, timeouts and bounded parallel execution.
-- **Standard library only** — Python 3.10+ with no package dependencies, making the project easy to audit and run in constrained environments.
-
-## Quick start
+## Run the original harness
 
 ```bash
-python3 -m evalforge validate examples/tasks.jsonl
-python3 -m evalforge run \
-  --tasks examples/tasks.jsonl \
-  --cmd "python3 examples/mock_model.py" \
-  --out .evalforge-demo/run.json \
-  --report .evalforge-demo/report.html \
-  --junit .evalforge-demo/results.xml \
-  --markdown .evalforge-demo/summary.md \
-  --sarif .evalforge-demo/analysis.sarif \
-  --fail-under 1.0
+python -m evalforge validate examples/tasks.jsonl
+python -m evalforge run --tasks examples/tasks.jsonl \
+  --cmd "python examples/mock_model.py" --out run.json \
+  --report report.html --junit results.xml --markdown summary.md \
+  --sarif analysis.sarif --fail-under 1
+python -m evalforge compare baseline.json candidate.json --max-drop .05 \
+  --format json --markdown comparison.md --sarif comparison.sarif
+python -m evalforge report run.json --html report.html
+python -m evalforge audit --spec examples/audit.json --json audit.json
 ```
 
-Expected result:
+Adapters receive the prompt on stdin, write their answer to stdout, and may use EVALFORGE_TASK_ID/EVALFORGE_PROMPT. Treat adapter commands and task checks as trusted local programs, not a sandbox. JSONL tasks use id/prompt and expected or checks. Checks: exact, contains, regex, JSON/subset, lexical token-F1, numeric tolerance, word/character length. Tags, timeouts, retries and bounded workers remain supported. Task loading validates structure; check-specific validation occurs when scoring. Invalid run gates and nonfinite/runtime options are now rejected before adapter execution.
 
-```text
-6/6 passed · mean score 1.000 · errors 0 · p95 <latency> ms
-```
+Exit codes remain 0 for a passed configured gate, 1 for a failed evaluation/comparison gate, 2 for invalid inputs. The `audit` command exports valid evidence and returns 0 even when its described comparison gate fails. Statistical controls do not change CI decisions.
 
-Open `.evalforge-demo/report.html` for the rendered report. `.evalforge-demo/results.xml` is a JUnit report for CI test viewers, `.evalforge-demo/summary.md` is a native CI job summary, and `.evalforge-demo/analysis.sarif` is a SARIF 2.1.0 log for code-scanning integrations. The mock adapter is a deterministic stand-in, not an AI model; it proves the evaluation loop without pretending to measure model quality.
+## Independent paired inspector
 
-## Evaluate a real model or agent
+Edit both result lists and allowed drop. Every matched pair, missing/added id, raw record and chart dot is recomputed by independent scalar JavaScript. The chart uses a fixed 0..1 score axis. Export contains the actual current report; edits hide stale results until recomputed. Output is rendered as text, not HTML.
 
-Create a command that reads a prompt from stdin and writes the answer to stdout:
+Two bounded statistical controls expose all arithmetic:
+
+- **Paired sign flips:** enumerate every sign assignment of nonzero integer .001-score differences, retaining each contribution, sum and absolute-tail flag. Ties count in the two-sided tail; zero differences are factored out. No Monte Carlo or plus-one adjustment.
+- **Exact McNemar:** expose all four paired pass-status cells, all binomial counts and the doubled/capped lower tail of discordant pairs. This tests pass marginals, not mean score.
+
+No matched pairs is undefined; all ties give p=1, not equivalence. Independent/exchangeable pairs are assumptions, not facts established by equal ids. Repeated prompts, selected tasks, changed scorers and benchmark reuse can invalidate interpretation. No multiple-comparison correction, confidence interval, significance threshold, scientific verdict or automatic inference gate. These are arithmetic controls, not evidence of model superiority.
+
+## Verification and retained work
+
+- All 68 original tests, original task suite, mock adapter and demo are byte-preserved. The original captured six-task run and HTML report remain visible; the current renderer reproduces that HTML exactly.
+- 92 Python tests, including all 780 difference vectors of lengths 1..4 over {-2,-1,0,1,2} against a separate Cartesian sign enumeration, all small discordant pass counts, 200 seeded gate comparisons and malformed/stale run controls.
+- 24 complete retained reports, independently compared at all 11,808 numeric and 2,691 other scalar leaves.
+- Three Node/actual-Chrome tests verify 53 paired rows, 564 sign assignments, 118 full displayed records, 47 binomial rows, all chart points, pass tables, invalidation/export and 320/390/1280 containment.
+- Python 3.10-3.13 test/regenerate fixtures. An isolated installed wheel outside the checkout verifies nine module origins, all reports and audit/adapter/compare CLI plus report formats.
+
+Same-environment byte regeneration is not all-platform determinism. Retained latency values are one local execution, not a performance benchmark. Scores/pass flags are supplied evidence, not rescored here or authenticated. See [EVIDENCE.md](EVIDENCE.md) for the exact bounded schema, definitions, provenance and prior work.
 
 ```bash
-python3 -m evalforge run \
-  --tasks tasks/production-agent.jsonl \
-  --cmd "python3 adapters/my_agent.py --model candidate" \
-  --out runs/candidate.json \
-  --report reports/candidate.html \
-  --timeout 45 \
-  --retries 1 \
-  --workers 2
-```
-
-The runner also exposes `EVALFORGE_TASK_ID` and `EVALFORGE_PROMPT` to the adapter environment. Raw stdout is stored as the response; stderr is preserved in the run error when the command exits non-zero.
-
-## Task file format
-
-Each non-empty line is one JSON object:
-
-```json
-{"id":"extract-city-json","prompt":"Return JSON for a Toronto weather lookup in metric units.","expected":{"city":"Toronto","units":"metric"},"tags":["extraction","json"]}
-```
-
-Required fields:
-
-| Field | Meaning |
-| --- | --- |
-| `id` | Stable unique task ID. Baseline comparisons match on this value. |
-| `prompt` | Text sent to the adapter on stdin. |
-| `expected` or `checks` | The acceptance criteria to execute. |
-
-Optional `tags` drive filtered runs and per-tag roll-ups. Optional `metadata` stays in the task file for reviewer context.
-
-When `checks` is omitted, EvalForge derives a sensible default from `expected`: JSON values use JSON equality, numbers use numeric matching, and strings use normalized exact matching. Explicit checks are better for production suites.
-
-## Scorers
-
-| Type | Example | Behavior |
-| --- | --- | --- |
-| `exact` | `{ "type": "exact", "value": "billing" }` | Whitespace-normalized match; case-sensitive only when requested. |
-| `contains` | `{ "type": "contains", "all_of": ["raw output", "baseline"] }` | Requires one value, every item in `all_of`, or any item in `any_of`. |
-| `regex` | `{ "type": "regex", "pattern": "p95 under 500 ms" }` | Searches the output with optional case-insensitive matching. |
-| `json` | `{ "type": "json", "value": {"ok": true}, "subset": true }` | Parses output as JSON and requires exact or recursive subset equality. |
-| `similarity` | `{ "type": "similarity", "value": "reference answer", "threshold": 0.8 }` | Token F1 against a reference with a configurable threshold. |
-| `numeric` | `{ "type": "numeric", "value": 42, "tolerance": 0.1 }` | Extracts the first number and applies absolute or relative tolerance. |
-| `length` | `{ "type": "length", "unit": "words", "min": 8, "max": 35 }` | Bounds word or character count. |
-
-Invalid task definitions fail before any adapter command runs. Unsupported check types, malformed regexes and invalid JSONL are reported with the task ID or line number.
-
-## Regression gates
-
-Save a known-good run as the baseline, then compare every candidate:
-
-```bash
-python3 -m evalforge compare runs/baseline.json runs/candidate.json --max-drop 0.05
-```
-
-The comparison:
-
-- matches results by stable task ID;
-- reports regressions before improvements;
-- treats missing candidate tasks as failures;
-- includes mean-score and pass-rate deltas;
-- exits `1` when a task drops more than `--max-drop`, a passing task starts failing, or a baseline task is missing;
-- emits JSON with `--format json` for automation;
-- writes a Markdown comparison with `--markdown PATH` for CI job summaries.
-- writes a SARIF 2.1.0 comparison with `--sarif PATH`, mapping regressions to errors and missing candidate tasks to warnings.
-
-## Command reference
-
-```text
-python3 -m evalforge validate TASKS.jsonl
-python3 -m evalforge run --tasks TASKS.jsonl --cmd COMMAND --out RUN.json [--report REPORT.html] [--junit RESULTS.xml] [--markdown SUMMARY.md] [--sarif ANALYSIS.sarif]
-                         [--timeout SECONDS] [--retries N] [--workers N]
-                         [--tag TAG ...] [--fail-under SCORE]
-python3 -m evalforge report RUN.json --html REPORT.html
-python3 -m evalforge compare BASELINE.json CANDIDATE.json [--max-drop SCORE] [--format text|json] [--markdown COMPARISON.md] [--sarif COMPARISON.sarif]
-```
-
-Exit codes:
-
-- `0` — command succeeded and all configured gates passed;
-- `1` — an evaluation gate or regression comparison failed;
-- `2` — invalid task file, run file or command-line input.
-
-## Design notes
-
-- **No hidden model dependency:** EvalForge evaluates the adapter you point it at. It does not bundle a proprietary model, call a paid API or require credentials.
-- **Raw evidence first:** raw outputs and adapter errors are kept alongside scores, so a report never hides the response behind a single number.
-- **Deterministic scoring:** checks run locally and produce the same result for the same output. This keeps CI stable and review discussions concrete.
-- **Safe reporting:** generated HTML escapes all model output and carries its CSS inline. There are no external scripts, trackers or assets.
-- **Standard-library architecture:** the code is split into small modules for task loading, scoring, execution, comparison, reporting and CLI behavior.
-
-## Limitations
-
-- Token-F1 similarity is a lexical check, not semantic judgment. Use exact, JSON, regex or numeric checks when correctness is precise.
-- Parallel execution is bounded by `--workers`; hosted model adapters can still impose their own rate limits and costs.
-- EvalForge records and gates behavior. It does not claim that a passing suite proves an AI system is safe or correct outside the tasks represented in that suite.
-
-## Development
-
-```bash
-python3 -m unittest discover -s tests -v
+python -m unittest discover -s tests -v
+python tools/build_audits.py
+npm test
 bash examples/demo.sh
+bash tools/wheel_smoke.sh
 ```
-
-The test suite runs fully offline. CI runs the same suite on Python 3.10 through 3.13.
