@@ -47,6 +47,8 @@ class AuditTests(unittest.TestCase):
  def test_id_order_and_full_raw_records(self):
   b=[row('__proto__',.8,output='<img src=x>',checks=[dict(type='exact',passed=True,score=1,detail='x')]),row('constructor',.5)]
   r=audit_compare(spec(b,list(reversed(b))));self.assertEqual(r['comparison']['witnesses'][0]['baseline']['output'],'<img src=x>');self.assertEqual(r['comparison']['witnesses'][0]['task_id'],'__proto__')
+  native=compare_payloads({'results':[row('x',.5,provenance={'source':'unverified fixture'})]},{'results':[row('x',.6,extra=['retained'])]})
+  self.assertEqual(native['witnesses'][0]['baseline']['provenance'],{'source':'unverified fixture'});self.assertEqual(native['witnesses'][0]['candidate']['extra'],['retained'])
  def test_invalid_profiles(self):
   cases=[{},None,{**spec(), 'extra':1},{**spec(), 'max_drop':None},{**spec(),'max_drop':.0001},spec([row('é',.2)],[]),spec([row('a',.1234)],[]),spec([row('a',.5)]*2,[]),spec([row('a',.2,tags=['x']*9)],[]),spec([row('a',.2,checks=[dict(type='x',score=1,passed=True,extra=1)])],[]),spec([row(str(i),.2) for i in range(9)],[row(str(i),.3) for i in range(9)])]
   for s in cases:
