@@ -225,9 +225,16 @@ def render_compare_markdown(payload: dict[str, Any]) -> str:
         f"| Unchanged | {int(summary.get('unchanged', 0))} |",
         f"| Missing in candidate | {int(summary.get('missing_in_candidate', 0))} |",
         f"| Added in candidate | {int(summary.get('added_in_candidate', 0))} |",
-        f"| Mean score delta | {float(summary.get('mean_score_delta', 0.0)):+.3f} |",
+        f"| All-task mean score delta | {float(summary.get('mean_score_delta', 0.0)):+.3f} |",
         f"| Pass-rate delta | {_fmt_pct(float(summary.get('pass_rate_delta', 0.0)))} |",
     ]
+
+    paired = payload.get("paired_summary")
+    if paired:
+        value = f"{paired['mean_score_delta']:+.3f}" if paired["defined"] else "undefined"
+        lines.extend([f"| Matched-task mean score delta | {value} |", "",
+                      "All-task deltas use each run's own cohort. Matched-task deltas use the task-id intersection.",
+                      "Equal ids do not verify equal task definitions. A comparison PASS is not a suite-quality verdict."])
 
     def add_changes(title: str, items: list[dict[str, Any]]) -> None:
         lines.extend([
