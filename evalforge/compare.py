@@ -12,6 +12,8 @@ def compare_payloads(baseline: dict, candidate: dict, *, max_drop: float = 0.0,
     # load_run validates file inputs; the public in-memory entry point validates too.
     from .core import validate_run
     baseline, candidate = validate_run(baseline), validate_run(candidate)
+    base_records = {item["task_id"]: item for item in baseline["results"]}
+    cand_records = {item["task_id"]: item for item in candidate["results"]}
     base_results = {item["task_id"]: TaskResult.from_dict(item) for item in baseline["results"]}
     cand_results = {item["task_id"]: TaskResult.from_dict(item) for item in candidate["results"]}
     common = sorted(set(base_results) & set(cand_results))
@@ -29,7 +31,7 @@ def compare_payloads(baseline: dict, candidate: dict, *, max_drop: float = 0.0,
                 "delta": delta, "baseline_passed": before.passed, "candidate_passed": after.passed,
                 "candidate_error": after.error}
         groups[group].append(item)
-        witnesses.append({**item, "baseline": before.to_dict(), "candidate": after.to_dict(),
+        witnesses.append({**item, "baseline": base_records[task_id], "candidate": cand_records[task_id],
                           "score_drop": score_drop, "pass_lost": pass_lost, "classification": group,
                           "score_margin": delta + max_drop})
     bs, cs = summarize(list(base_results.values())).to_dict(), summarize(list(cand_results.values())).to_dict()
