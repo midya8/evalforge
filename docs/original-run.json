@@ -1,0 +1,198 @@
+{
+  "command": "python3 examples/mock_model.py",
+  "created_at": "2026-11-09T04:31:00.797205+00:00",
+  "results": [
+    {
+      "attempts": 1,
+      "checks": [
+        {
+          "detail": "exact JSON match",
+          "passed": true,
+          "score": 1.0,
+          "type": "json"
+        }
+      ],
+      "error": null,
+      "latency_ms": 13.758757006144151,
+      "output": "{\"city\": \"Toronto\", \"units\": \"metric\", \"answer\": \"Toronto, Canada\"}",
+      "passed": true,
+      "score": 1.0,
+      "tags": [
+        "extraction",
+        "json"
+      ],
+      "task_id": "extract-city-json"
+    },
+    {
+      "attempts": 1,
+      "checks": [
+        {
+          "detail": "pattern 'INCIDENT SUMMARY:.*rollback.*p95 under 500 ms'",
+          "passed": true,
+          "score": 1.0,
+          "type": "regex"
+        }
+      ],
+      "error": null,
+      "latency_ms": 13.404038007138297,
+      "output": "INCIDENT SUMMARY: checkout latency rose after deploy 2026-11-06T22:10Z; rollback restored p95 under 500 ms.",
+      "passed": true,
+      "score": 1.0,
+      "tags": [
+        "generation",
+        "operations"
+      ],
+      "task_id": "incident-summary"
+    },
+    {
+      "attempts": 1,
+      "checks": [
+        {
+          "detail": "got 42, expected 42, tolerance 0",
+          "passed": true,
+          "score": 1.0,
+          "type": "numeric"
+        }
+      ],
+      "error": null,
+      "latency_ms": 12.918187014292926,
+      "output": "The result is 42.",
+      "passed": true,
+      "score": 1.0,
+      "tags": [
+        "reasoning"
+      ],
+      "task_id": "calculation"
+    },
+    {
+      "attempts": 1,
+      "checks": [
+        {
+          "detail": "token F1 1.000, threshold 0.550",
+          "passed": true,
+          "score": 1.0,
+          "type": "similarity"
+        },
+        {
+          "detail": "12 words",
+          "passed": true,
+          "score": 1.0,
+          "type": "length"
+        }
+      ],
+      "error": null,
+      "latency_ms": 12.77887198375538,
+      "output": "Evaluate agents with versioned tasks, deterministic checks, regression gates, and readable reports.",
+      "passed": true,
+      "score": 1.0,
+      "tags": [
+        "generation",
+        "quality"
+      ],
+      "task_id": "evaluation-summary"
+    },
+    {
+      "attempts": 1,
+      "checks": [
+        {
+          "detail": "expected 'billing'",
+          "passed": true,
+          "score": 1.0,
+          "type": "exact"
+        }
+      ],
+      "error": null,
+      "latency_ms": 12.880613998277113,
+      "output": "billing",
+      "passed": true,
+      "score": 1.0,
+      "tags": [
+        "classification"
+      ],
+      "task_id": "classification"
+    },
+    {
+      "attempts": 1,
+      "checks": [
+        {
+          "detail": "all terms present",
+          "passed": true,
+          "score": 1.0,
+          "type": "contains"
+        }
+      ],
+      "error": null,
+      "latency_ms": 12.890428974060342,
+      "output": "Use explicit acceptance checks, keep raw outputs, and compare every candidate against a baseline.",
+      "passed": true,
+      "score": 1.0,
+      "tags": [
+        "quality",
+        "documentation"
+      ],
+      "task_id": "general-principles"
+    }
+  ],
+  "schema_version": 1,
+  "summary": {
+    "count": 6,
+    "errors": 0,
+    "failed": 0,
+    "mean_score": 1.0,
+    "median_latency_ms": 12.890428974060342,
+    "p95_latency_ms": 13.758757006144151,
+    "pass_rate": 1.0,
+    "passed": 6,
+    "tags": [
+      {
+        "count": 1,
+        "mean_score": 1.0,
+        "passed": 1,
+        "tag": "classification"
+      },
+      {
+        "count": 1,
+        "mean_score": 1.0,
+        "passed": 1,
+        "tag": "documentation"
+      },
+      {
+        "count": 1,
+        "mean_score": 1.0,
+        "passed": 1,
+        "tag": "extraction"
+      },
+      {
+        "count": 2,
+        "mean_score": 1.0,
+        "passed": 2,
+        "tag": "generation"
+      },
+      {
+        "count": 1,
+        "mean_score": 1.0,
+        "passed": 1,
+        "tag": "json"
+      },
+      {
+        "count": 1,
+        "mean_score": 1.0,
+        "passed": 1,
+        "tag": "operations"
+      },
+      {
+        "count": 2,
+        "mean_score": 1.0,
+        "passed": 2,
+        "tag": "quality"
+      },
+      {
+        "count": 1,
+        "mean_score": 1.0,
+        "passed": 1,
+        "tag": "reasoning"
+      }
+    ]
+  },
+  "tasks_path": "examples/tasks.jsonl"
+}
