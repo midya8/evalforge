@@ -11,6 +11,13 @@ import tempfile
 from typing import Any, Iterable
 
 
+def finite_number(value):
+    try:
+        return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(value)
+    except (OverflowError, TypeError):
+        return False
+
+
 class EvalForgeError(Exception):
     """Raised for invalid tasks, runs, or command-line inputs."""
 
@@ -54,6 +61,8 @@ class Task:
         tags = data.get("tags", [])
         if not isinstance(tags, list) or any(not isinstance(tag, str) or not tag.strip() for tag in tags):
             raise EvalForgeError(f"Task {task_id!r}{where} tags must be non-empty strings")
+        if len(set(tag.strip() for tag in tags)) != len(tags):
+            raise EvalForgeError(f"Task {task_id!r}{where} tags must be unique")
         metadata = data.get("metadata", {})
         if not isinstance(metadata, dict):
             raise EvalForgeError(f"Task {task_id!r}{where} metadata must be an object")
@@ -226,6 +235,14 @@ def percentile(values: list[float], pct: float) -> float:
     return ordered[rank]
 
 
+def _score_sum(items):
+    """Ordered binary64 accumulation, stable across Python sum changes."""
+    total = 0.0
+    for item in items:
+        total += item.score
+    return total
+
+
 def summarize(results: list[TaskResult]) -> RunSummary:
     count = len(results)
     passed = sum(1 for result in results if result.passed)
@@ -240,7 +257,7 @@ def summarize(results: list[TaskResult]) -> RunSummary:
             tag=tag,
             count=len(items),
             passed=sum(1 for item in items if item.passed),
-            mean_score=sum(item.score for item in items) / len(items),
+            mean_score=_score_sum(items) / len(items),
         )
         for tag, items in sorted(by_tag.items())
     )
@@ -250,7 +267,7 @@ def summarize(results: list[TaskResult]) -> RunSummary:
         failed=count - passed,
         errors=errors,
         pass_rate=(passed / count) if count else 0.0,
-        mean_score=(sum(result.score for result in results) / count) if count else 0.0,
+        mean_score=(_score_sum(results) / count) if count else 0.0,
         median_latency_ms=percentile(latencies, 50),
         p95_latency_ms=percentile(latencies, 95),
         tags=tags,
@@ -283,11 +300,54 @@ def load_run(path: str | Path) -> dict[str, Any]:
         raise EvalForgeError(f"Run file not found: {run_path}")
     try:
         payload = json.loads(run_path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise EvalForgeError(f"Invalid run JSON {run_path}: {exc.msg}") from exc
+    except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+        raise EvalForgeError(f"Invalid run JSON {run_path}: {exc}") from exc
+    return validate_run(payload)
+
+
+def validate_run(payload: dict[str, Any]) -> dict[str, Any]:
+    """Validate comparison/report evidence instead of coercing strings to booleans.
+
+    Stored summaries are ignored and recomputed from validated rows. Optional
+    legacy result fields retain defaults; id, score and passed are required.
+    Unknown run/result metadata is preserved; this is not an authenticity check.
+    """
     if not isinstance(payload, dict) or not isinstance(payload.get("results"), list):
-        raise EvalForgeError(f"Run file {run_path} must contain an object with a results list")
-    payload["results"] = [TaskResult.from_dict(item).to_dict() for item in payload["results"]]
-    if isinstance(payload.get("summary"), dict):
-        payload["summary"] = RunSummary.from_dict(payload["summary"]).to_dict()
-    return payload
+        raise EvalForgeError("Run must contain an object with a results list")
+    def number(v, label, low=0, high=None):
+        try:
+            valid = not isinstance(v, bool) and isinstance(v, (int, float)) and math.isfinite(v) and v >= low and (high is None or v <= high)
+        except (OverflowError, TypeError):
+            valid = False
+        if not valid:
+            raise EvalForgeError(label + " must be a finite number in range")
+    seen, normalized = set(), []
+    for row in payload["results"]:
+        if not isinstance(row, dict) or not isinstance(row.get("task_id"), str) or not row["task_id"].strip():
+            raise EvalForgeError("Result needs a non-empty task_id")
+        key = row["task_id"]
+        if key in seen:
+            raise EvalForgeError("Duplicate result task_id: " + key)
+        seen.add(key)
+        number(row.get("score"), "Result score", high=1)
+        if not isinstance(row.get("passed"), bool):
+            raise EvalForgeError("Result passed must be Boolean")
+        if not isinstance(row.get("output", ""), str) or (row.get("error") is not None and not isinstance(row["error"], str)):
+            raise EvalForgeError("Result output/error must be text")
+        number(row.get("latency_ms", 0), "Latency")
+        attempts = row.get("attempts", 1)
+        if isinstance(attempts, bool) or not isinstance(attempts, int) or attempts < 1:
+            raise EvalForgeError("Attempts must be a positive integer")
+        tags, checks = row.get("tags", []), row.get("checks", [])
+        if not isinstance(tags, list) or any(not isinstance(t, str) or not t.strip() for t in tags) or len(set(tags)) != len(tags):
+            raise EvalForgeError("Result tags must be unique non-empty strings")
+        if not isinstance(checks, list):
+            raise EvalForgeError("Result checks must be a list")
+        for c in checks:
+            if not isinstance(c, dict) or not isinstance(c.get("type"), str) or not isinstance(c.get("passed"), bool) or not isinstance(c.get("detail", ""), str):
+                raise EvalForgeError("Invalid check detail")
+            number(c.get("score"), "Check score", high=1)
+        # A result may legitimately pass with a partial score; do not infer pass from score.
+        normalized.append({**row, **TaskResult.from_dict(row).to_dict()})
+    results = [TaskResult.from_dict(r) for r in normalized]
+    return {**payload, "results": normalized, "summary": summarize(results).to_dict()}
