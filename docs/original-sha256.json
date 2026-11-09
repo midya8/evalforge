@@ -1,0 +1,11 @@
+{
+  "README.md": "5b907455267406e1a23d8bada529e3fdef0a50f36e6f237d825808a848458515",
+  "examples/tasks.jsonl": "5ee2526c3eb54adfb24e4cb0f0dc61484049d2f9a2f08e7e50c2bfbbeb894da0",
+  "examples/mock_model.py": "7ed5bec828d9a8bf922dfc362a19b1e26a0fb66c00b73cac7c0f5e4d5015a977",
+  "examples/demo.sh": "07e7c69deb06d5aa850e6dfb8054a8c6b36ae9a3143ef176b6bce584b422887b",
+  "tests/__init__.py": "b0ff718d2ede0854005ea8db20999a6c3d428aec52f068c0e02649c5e8d9f4ab",
+  "tests/test_cli_report_compare.py": "f9cfd93eceb051a1bd0ddd66fef4adb5f8946f0f2a4e2f73c3a075b903e74c5e",
+  "tests/test_core.py": "1e69cc09a8cd00490715dc267081677b22c852ec361fafad2848e31ef6ba7bd6",
+  "tests/test_runner.py": "fb4e032272daa11e26759a37cb245907e92c2bd3ac79ef48af300bd0d2fe8791",
+  "tests/test_scorers.py": "1366c5c4a4a21322449c626ac35eb87eed90e562a986c4d16e4e890d53548bee"
+}
