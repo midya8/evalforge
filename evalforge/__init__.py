@@ -18,4 +18,7 @@ __all__ = [
     "write_run",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
+
+from .family import family_report
+__all__.append("family_report")
