@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, evalforge-cluster-family]
   pull_request:
 
 jobs:
@@ -25,6 +25,8 @@ jobs:
         run: |
           python tools/build_audits.py
           git diff --exit-code -- docs/audit.json examples/audit.json
+          python tools/build_family.py
+          git diff --exit-code -- examples/family.json examples/family-reports.json docs/family-data.js
   browser:
     runs-on: ubuntu-latest
     steps:
@@ -41,3 +43,4 @@ jobs:
         with:
           python-version: '3.12'
       - run: bash tools/wheel_smoke.sh
+      - run: bash tools/family_wheel_smoke.sh

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evalforge"
-version = "0.1.0"
+version = "0.2.0"
 description = "Local-first evaluation for LLM and agent outputs"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -27,6 +27,7 @@ dependencies = []
 
 [project.scripts]
 evalforge = "evalforge.cli:main"
+evalforge-family = "evalforge.family_cli:main"
 
 [tool.setuptools.packages.find]
 include = ["evalforge*"]
