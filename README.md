@@ -58,3 +58,7 @@ npm test
 bash examples/demo.sh
 bash tools/wheel_smoke.sh
 ```
+
+## Clustered joint family orbit (0.2)
+
+[Inspect shared cluster signs and complete max tails](https://midya8.github.io/evalforge/family.html) or read [FAMILY.md](FAMILY.md). A separate bounded integer-score API and CLI enumerate every shared cluster sign across up to four candidates. The original regression gate, paired audit and McNemar paths are unchanged. Supplied labels do not establish joint symmetry; no universal strong-FWER or model-superiority claim.
