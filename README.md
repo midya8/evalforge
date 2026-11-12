@@ -4,7 +4,19 @@ Local-first evaluation for LLM and agent outputs, with paired comparison evidenc
 
 [Open the paired inspector](https://midya8.github.io/evalforge/) · [Evidence contract](EVIDENCE.md) · [Original README](docs/original-readme.md)
 
-## The average changed. Did the tasks?
+## Choose an evaluation
+
+| Question | Entry point | Result |
+| --- | --- | --- |
+| Does an adapter satisfy the supplied checks? | `validate`, `run`, `report` | Per-task responses, scores, errors and report files |
+| Which paired results changed? | `compare`, `audit`, `docs/index.html` | Matched deltas, regression decisions and bounded paired controls |
+| How do shared cluster signs affect a candidate family? | `evalforge.family_cli`, `docs/family.html` | Complete joint sign orbit and maximum tails |
+
+The original gate and statistical controls answer different questions. A passed
+comparison is not an absolute quality verdict; matching task IDs or supplied
+cluster labels do not establish the statistical assumptions.
+
+## Paired task comparison
 
 The original standard-library harness runs local/hosted command adapters, scores text with deterministic checks, preserves responses/errors/check details and writes HTML, JUnit, Markdown and SARIF reports. The included six-task adapter is an offline mock, not an AI model or benchmark.
 
@@ -26,7 +38,7 @@ python -m evalforge report run.json --html report.html
 python -m evalforge audit --spec examples/audit.json --json audit.json
 ```
 
-Adapters receive the prompt on stdin, write their answer to stdout, and may use EVALFORGE_TASK_ID/EVALFORGE_PROMPT. Treat adapter commands and task checks as trusted local programs, not a sandbox. JSONL tasks use id/prompt and expected or checks. Checks: exact, contains, regex, JSON/subset, lexical token-F1, numeric tolerance, word/character length. Tags, timeouts, retries and bounded workers remain supported. Task loading validates structure; check-specific validation occurs when scoring. Invalid run gates and nonfinite/runtime options are now rejected before adapter execution.
+Adapters receive the prompt on stdin, write their answer to stdout, and may use EVALFORGE_TASK_ID/EVALFORGE_PROMPT. Adapter commands and task checks execute locally with the caller's permissions; EvalForge does not sandbox them. Review unfamiliar programs before running them. JSONL tasks use id/prompt and expected or checks. Checks: exact, contains, regex, JSON/subset, lexical token-F1, numeric tolerance, word/character length. Tags, timeouts, retries and bounded workers remain supported. Task loading validates structure; check-specific validation occurs when scoring. Invalid run gates and nonfinite/runtime options are now rejected before adapter execution.
 
 Exit codes remain 0 for a passed configured gate, 1 for a failed evaluation/comparison gate, 2 for invalid inputs. The `audit` command exports valid evidence and returns 0 even when its described comparison gate fails. Statistical controls do not change CI decisions.
 
@@ -44,7 +56,7 @@ No matched pairs is undefined; all ties give p=1, not equivalence. Independent/e
 ## Verification and retained work
 
 - All 68 original tests, original task suite, mock adapter and demo are byte-preserved. The original captured six-task run and HTML report remain visible; the current renderer reproduces that HTML exactly.
-- 92 Python tests, including all 780 difference vectors of lengths 1..4 over {-2,-1,0,1,2} against a separate Cartesian sign enumeration, all small discordant pass counts, 200 seeded gate comparisons and malformed/stale run controls.
+- The paired-inspector release had 92 Python tests, including all 780 difference vectors of lengths 1..4 over {-2,-1,0,1,2} against a separate Cartesian sign enumeration, all small discordant pass counts, 200 seeded gate comparisons and malformed/stale run controls.
 - 24 complete retained reports, independently compared at all 11,808 numeric and 2,691 other scalar leaves.
 - Three Node/actual-Chrome tests verify 53 paired rows, 564 sign assignments, 118 full displayed records, 47 binomial rows, all chart points, pass tables, invalidation/export and 320/390/1280 containment.
 - Python 3.10-3.13 test/regenerate fixtures. An isolated installed wheel outside the checkout verifies nine module origins, all reports and audit/adapter/compare CLI plus report formats.
@@ -62,3 +74,11 @@ bash tools/wheel_smoke.sh
 ## Clustered joint family orbit (0.2)
 
 [Inspect shared cluster signs and complete max tails](https://midya8.github.io/evalforge/family.html) or read [FAMILY.md](FAMILY.md). A separate bounded integer-score API and CLI enumerate every shared cluster sign across up to four candidates. The original regression gate, paired audit and McNemar paths are unchanged. Supplied labels do not establish joint symmetry; no universal strong-FWER or model-superiority claim.
+The current suite has 102 Python tests and seven Node/actual-Chrome tests,
+including the earlier paired checks. The family experiment has its own native
+entry point and installed API/module/console reproduction:
+
+```bash
+python -m evalforge.family_cli --input examples/family.json
+bash tools/family_wheel_smoke.sh
+```
