@@ -74,7 +74,7 @@ bash tools/wheel_smoke.sh
 ## Clustered joint family orbit (0.2)
 
 [Inspect shared cluster signs and complete max tails](https://midya8.github.io/evalforge/family.html) or read [FAMILY.md](FAMILY.md). A separate bounded integer-score API and CLI enumerate every shared cluster sign across up to four candidates. The original regression gate, paired audit and McNemar paths are unchanged. Supplied labels do not establish joint symmetry; no universal strong-FWER or model-superiority claim.
-The current suite has 102 Python tests and seven Node/actual-Chrome tests,
+The current suite has 104 Python tests and seven Node/actual-Chrome tests,
 including the earlier paired checks. The family experiment has its own native
 entry point and installed API/module/console reproduction:
 
@@ -82,3 +82,9 @@ entry point and installed API/module/console reproduction:
 python -m evalforge.family_cli --input examples/family.json
 bash tools/family_wheel_smoke.sh
 ```
+
+Two family regression tests compare 24 complete reports after candidate-column
+permutations and positive integer changes of score units. An added zero-difference
+cluster doubles orbit counts without changing tail fractions; the extra task
+still changes the task-weighted mean. These finite symmetries check consistency,
+not the statistical assumptions or every possible arithmetic error.
