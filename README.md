@@ -88,3 +88,25 @@ permutations and positive integer changes of score units. An added zero-differen
 cluster doubles orbit counts without changing tail fractions; the extra task
 still changes the task-weighted mean. These finite symmetries check consistency,
 not the statistical assumptions or every possible arithmetic error.
+
+## Numeric scoring at finite-range boundaries
+
+Numeric checks reject nonfinite or negative tolerances, Boolean tolerances and
+nonfinite expected values. A first output number such as `1e999` fails the
+check instead of becoming an accepted infinity. Invalid check options still
+raise an input error even when the output contains no number.
+
+Ordinary finite comparisons keep their existing binary64 boundary behavior.
+If subtracting two finite numbers or multiplying the expected magnitude by a
+finite relative tolerance overflows, the comparison uses exact ratios of the
+already-converted floats. This avoids an `infinity <= infinity` false pass;
+it does not add decimal parsing accuracy or change which output number is used.
+Finite numeric strings remain accepted for tolerance options.
+
+Four regression tests cover malformed and nonfinite options, overflowed output,
+128 finite boundary/large-magnitude comparisons against a separate high-precision
+Decimal reference, and CLI failure without a success artifact. All 104 earlier
+tests remain. The full suite has 108 Python tests and seven Node/actual-Chrome
+tests; the installed-wheel check also runs the four new tests outside the checkout.
+Check-specific errors are found during scoring, after an adapter may have run.
+This is a numeric-check fix, not a model-quality or statistical claim.
