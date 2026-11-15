@@ -20,3 +20,6 @@ assert json.loads((p/'run.sarif').read_text())['runs'][0]['results']==[]
 assert json.loads((p/'compare.sarif').read_text())['runs'][0]['results']==[]
 print('Installed audit/adapter/compare CLI, HTML/JUnit/Markdown/SARIF pass')
 PY
+# Copy only the numeric regression module, so imports resolve to the wheel.
+cp "$ROOT/tests/test_numeric_finite.py" "$TMP/test_numeric_finite.py"
+(cd "$TMP" && PYTHONPATH= "$TMP/env/bin/python" -B -m unittest discover -s . -p test_numeric_finite.py -v)
