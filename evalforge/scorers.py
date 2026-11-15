@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from collections import Counter
+from fractions import Fraction
 import json
 import math
 import re
 from typing import Any
 
-from .core import EvalForgeError, ScoreDetail, Task
+from .core import EvalForgeError, ScoreDetail, Task, finite_number
 
 
 _NUMBER_RE = re.compile(r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?")
@@ -129,19 +130,37 @@ def score_check(check: dict[str, Any], output: str, task: Task) -> ScoreDetail:
 
     if check_type == "numeric":
         expected = check.get("value", task.expected)
-        if isinstance(expected, bool) or not isinstance(expected, (int, float)) or not math.isfinite(float(expected)):
+        if not finite_number(expected):
             raise EvalForgeError(f"Task {task.id!r} numeric check needs a finite number")
+        expected_float = float(expected)
+        try:
+            raw = [check.get("tolerance", 0.0), check.get("relative_tolerance", 0.0)]
+            if any(isinstance(value, bool) for value in raw):
+                raise ValueError("Boolean tolerance")
+            tolerance, relative = map(float, raw)
+            if any(not math.isfinite(value) or value < 0 for value in (tolerance, relative)):
+                raise ValueError("nonfinite or negative tolerance")
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise EvalForgeError(f"Task {task.id!r} numeric tolerances must be finite and non-negative") from exc
         match = _NUMBER_RE.search(output)
         if not match:
             return _score(False, "numeric", f"no number found; expected {expected}")
         actual = float(match.group(0))
-        tolerance = float(check.get("tolerance", 0.0))
-        relative = float(check.get("relative_tolerance", 0.0))
-        if tolerance < 0 or relative < 0:
-            raise EvalForgeError(f"Task {task.id!r} numeric tolerances must be non-negative")
-        allowed = max(tolerance, abs(float(expected)) * relative)
-        difference = abs(actual - float(expected))
-        return _score(difference <= allowed, "numeric", f"got {actual:g}, expected {float(expected):g}, tolerance {allowed:g}")
+        if not math.isfinite(actual):
+            return _score(False, "numeric", "first output number is not finite")
+        allowed = max(tolerance, abs(expected_float) * relative)
+        difference = abs(actual - expected_float)
+        # Preserve existing binary64 boundaries when intermediates are finite.
+        # Only overflow uses exact ratios of the already-converted floats.
+        if math.isfinite(allowed) and math.isfinite(difference):
+            passed = difference <= allowed
+            detail = f"got {actual:g}, expected {expected_float:g}, tolerance {allowed:g}"
+        else:
+            distance = abs(Fraction(actual) - Fraction(expected_float))
+            bound = max(Fraction(tolerance), abs(Fraction(expected_float)) * Fraction(relative))
+            passed = distance <= bound
+            detail = f"got {actual:g}, expected {expected_float:g}; overflow-safe tolerance comparison"
+        return _score(passed, "numeric", detail)
 
     if check_type == "length":
         unit = str(check.get("unit", "words")).lower()
