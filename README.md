@@ -89,6 +89,22 @@ cluster doubles orbit counts without changing tail fractions; the extra task
 still changes the task-weighted mean. These finite symmetries check consistency,
 not the statistical assumptions or every possible arithmetic error.
 
+## Full installed-suite replay
+
+Run `python tools/check_installed_suite.py` with setuptools and wheel installed.
+It builds a fresh wheel, then runs all 108 existing Python tests outside the
+checkout. Copied tests, adapters, browser bundles and retained evidence contain
+no EvalForge package source. Eleven installed module origins are checked before
+and after; the module CLI is executed rather than imported.
+
+The report replay checks all 48 retained paired/family reports through the
+installed API and 96 complete CLI reports through both module and console
+entrypoints. Use `--section tests` or `--section reports` for either half. A
+separate CI job runs both and keeps the original wheel jobs. These checks test
+packaging in one runtime, not statistical assumptions, model quality or
+all-platform numerical identity. Existing independent references, original
+fixtures and numerical tolerances are unchanged.
+
 ## Numeric scoring at finite-range boundaries
 
 Numeric checks reject nonfinite or negative tolerances, Boolean tolerances and
